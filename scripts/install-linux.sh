@@ -38,7 +38,7 @@ install_system_deps() {
 }
 
 install_ffmpeg() {
-    if [[ -x "$FFMPEG_DIR/ffmpeg" ]]; then
+    if [[ -x "$FFMPEG_DIR/ffmpeg" && -L /usr/local/bin/ffmpeg && -L /usr/local/bin/ffprobe ]]; then
         echo "==> [skip] ffmpeg already installed ($("$FFMPEG_DIR/ffmpeg" -version 2>&1 | head -1))"
         return
     fi
