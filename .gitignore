@@ -54,3 +54,4 @@ jasna/settings.json
 *.pt
 *.pth
 model_weights/
+.install-state/
