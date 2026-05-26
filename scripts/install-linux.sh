@@ -135,6 +135,7 @@ install_jasna() {
     fi
     echo "==> Installing jasna..."
     cd "$REPO_ROOT"
+    uv pip install wheel_stub
     uv pip install -e . --no-build-isolation \
         --extra-index-url https://download.pytorch.org/whl/cu130 \
         --index-strategy unsafe-best-match \
