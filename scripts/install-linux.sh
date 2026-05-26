@@ -17,19 +17,6 @@ for arg in "$@"; do
     esac
 done
 
-retry() {
-    local n=1
-    until "$@"; do
-        if [[ $n -ge 5 ]]; then
-            echo "ERROR: command failed after $n attempts: $*"
-            return 1
-        fi
-        echo "    attempt $n failed, retrying in 10s..."
-        n=$((n + 1))
-        sleep 10
-    done
-}
-
 check_uv() {
     if ! command -v uv &>/dev/null; then
         echo "ERROR: uv not found. Install it first:"
@@ -87,25 +74,18 @@ install_gpu_libs() {
     fi
     echo "    CUDA $cuda_ver ok"
 
-    if uv pip show cmake ninja scikit-build &>/dev/null; then
-        echo "==> [skip] build tools already installed"
-    else
-        echo "==> Installing build tools..."
-        uv pip install cmake ninja scikit-build
-    fi
-
     if uv pip show python-vali &>/dev/null; then
         echo "==> [skip] python_vali already installed"
     else
         echo "==> Installing python_vali (GPU decoder)..."
-        retry uv pip install "python-vali @ git+https://codeberg.org/Kruk2/vali" --no-build-isolation
+        uv pip install python-vali
     fi
 
     if uv pip show PyNvVideoCodec &>/dev/null; then
         echo "==> [skip] PyNvVideoCodec already installed"
     else
         echo "==> Installing PyNvVideoCodec (GPU encoder)..."
-        retry uv pip install "PyNvVideoCodec @ git+https://codeberg.org/Kruk2/PyNvVideoCodec" --no-build-isolation
+        uv pip install PyNvVideoCodec
     fi
 }
 
