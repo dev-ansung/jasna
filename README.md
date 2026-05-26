@@ -173,7 +173,7 @@ bash scripts/install-linux.sh
 The script handles:
 - Installing `mkvtoolnix` via apt
 - Downloading ffmpeg 8 static build to `~/.local/jasna/ffmpeg` and adding it to PATH
-- Building `python-vali` and `PyNvVideoCodec` from source against your CUDA 13 toolkit
+- Installing `python-vali` and `PyNvVideoCodec` from PyPI
 - Downloading required model weights from HuggingFace into `model_weights/`
 - Installing jasna itself (`uv pip install -e .`)
 
@@ -220,8 +220,6 @@ On a fresh pod: attach the same volume, re-activate the venv, and run — no re-
 Install `ffmpeg` + `ffprobe` (**major version 8**), `mkvmerge` ([MKVToolNix](https://mkvtoolnix.download/downloads.html)), and CUDA 13 headers, then:
 
 ```bash
-uv pip install cmake ninja scikit-build
-uv pip install "python-vali @ git+https://codeberg.org/Kruk2/vali" --no-build-isolation
-uv pip install "PyNvVideoCodec @ git+https://codeberg.org/Kruk2/PyNvVideoCodec" --no-build-isolation
+uv pip install python-vali PyNvVideoCodec
 uv pip install -e .[dev] --no-build-isolation
 ```
