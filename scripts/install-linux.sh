@@ -38,7 +38,7 @@ install_system_deps() {
 }
 
 install_ffmpeg() {
-    if [[ -x "$FFMPEG_DIR/ffmpeg" && -L /usr/local/bin/ffmpeg && -L /usr/local/bin/ffprobe ]]; then
+    if [[ -x "$FFMPEG_DIR/ffmpeg" && -L /usr/bin/ffmpeg && -L /usr/bin/ffprobe ]]; then
         echo "==> [skip] ffmpeg already installed ($("$FFMPEG_DIR/ffmpeg" -version 2>&1 | head -1))"
         return
     fi
@@ -48,8 +48,8 @@ install_ffmpeg() {
         | tar -xJ --strip-components=2 -C "$FFMPEG_DIR" \
               --wildcards "*/bin/ffmpeg" "*/bin/ffprobe"
     chmod +x "$FFMPEG_DIR/ffmpeg" "$FFMPEG_DIR/ffprobe"
-    ln -sf "$FFMPEG_DIR/ffmpeg"  /usr/local/bin/ffmpeg
-    ln -sf "$FFMPEG_DIR/ffprobe" /usr/local/bin/ffprobe
+    ln -sf "$FFMPEG_DIR/ffmpeg"  /usr/bin/ffmpeg
+    ln -sf "$FFMPEG_DIR/ffprobe" /usr/bin/ffprobe
     echo "    $(ffmpeg -version 2>&1 | head -1)"
 }
 
