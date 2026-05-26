@@ -30,6 +30,10 @@ dependencies = [
 jasna = "jasna.main:main"
 
 [project.optional-dependencies]
+linux-gpu = [
+  "python-vali @ git+https://codeberg.org/Kruk2/vali",
+  "PyNvVideoCodec @ git+https://codeberg.org/Kruk2/PyNvVideoCodec",
+]
 dev = [
   "pyinstaller>=6.0",
   "pytest",
