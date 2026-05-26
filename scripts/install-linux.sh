@@ -9,7 +9,6 @@ FFMPEG_DIR="$HOME/.local/jasna/ffmpeg"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HF_BASE="https://huggingface.co/ladaapp/lada/resolve/main"
 DOWNLOAD_ALL_MODELS=0
-STATE_DIR="$REPO_ROOT/.install-state"
 # ─────────────────────────────────────────────────────────────────────────────
 
 for arg in "$@"; do
@@ -17,11 +16,6 @@ for arg in "$@"; do
         --all-models) DOWNLOAD_ALL_MODELS=1 ;;
     esac
 done
-
-mkdir -p "$STATE_DIR"
-
-done_stamp() { [[ -f "$STATE_DIR/$1" ]]; }
-mark_done()  { touch "$STATE_DIR/$1"; }
 
 retry() {
     local n=1
@@ -58,10 +52,9 @@ install_system_deps() {
 }
 
 install_ffmpeg() {
-    # Always export PATH so ffmpeg is available even if already installed
     export PATH="$FFMPEG_DIR:$PATH"
-    if done_stamp ffmpeg; then
-        echo "==> [skip] ffmpeg already installed"
+    if [[ -x "$FFMPEG_DIR/ffmpeg" ]]; then
+        echo "==> [skip] ffmpeg already installed ($(ffmpeg -version 2>&1 | head -1))"
         return
     fi
     echo "==> Installing ffmpeg 8..."
@@ -77,7 +70,6 @@ install_ffmpeg() {
         || echo "export PATH=\"$FFMPEG_DIR:\$PATH\"" >> "$shell_rc"
 
     echo "    $("$FFMPEG_DIR/ffmpeg" -version 2>&1 | head -1)"
-    mark_done ffmpeg
 }
 
 install_gpu_libs() {
@@ -95,28 +87,25 @@ install_gpu_libs() {
     fi
     echo "    CUDA $cuda_ver ok"
 
-    if done_stamp build_tools; then
+    if uv pip show cmake ninja scikit-build &>/dev/null; then
         echo "==> [skip] build tools already installed"
     else
         echo "==> Installing build tools..."
         uv pip install cmake ninja scikit-build
-        mark_done build_tools
     fi
 
-    if done_stamp python_vali; then
+    if uv pip show python-vali &>/dev/null; then
         echo "==> [skip] python_vali already installed"
     else
         echo "==> Installing python_vali (GPU decoder)..."
         retry uv pip install "python-vali @ git+https://codeberg.org/Kruk2/vali" --no-build-isolation
-        mark_done python_vali
     fi
 
-    if done_stamp pynvvideocodec; then
+    if uv pip show PyNvVideoCodec &>/dev/null; then
         echo "==> [skip] PyNvVideoCodec already installed"
     else
         echo "==> Installing PyNvVideoCodec (GPU encoder)..."
         retry uv pip install "PyNvVideoCodec @ git+https://codeberg.org/Kruk2/PyNvVideoCodec" --no-build-isolation
-        mark_done pynvvideocodec
     fi
 }
 
@@ -161,14 +150,13 @@ download_models() {
 }
 
 install_jasna() {
-    if done_stamp jasna; then
+    if uv pip show jasna &>/dev/null; then
         echo "==> [skip] jasna already installed"
         return
     fi
     echo "==> Installing jasna..."
     cd "$REPO_ROOT"
     uv pip install -e . --no-build-isolation
-    mark_done jasna
 }
 
 main() {
