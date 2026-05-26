@@ -17,6 +17,19 @@ for arg in "$@"; do
     esac
 done
 
+retry() {
+    local n=1
+    until "$@"; do
+        if [[ $n -ge 5 ]]; then
+            echo "ERROR: command failed after $n attempts: $*"
+            return 1
+        fi
+        echo "    attempt $n failed, retrying in 10s..."
+        n=$((n + 1))
+        sleep 10
+    done
+}
+
 check_uv() {
     if ! command -v uv &>/dev/null; then
         echo "ERROR: uv not found. Install it first:"
@@ -69,10 +82,10 @@ install_gpu_libs() {
     uv pip install cmake ninja scikit-build
 
     echo "==> Installing python_vali (GPU decoder)..."
-    uv pip install "python-vali @ git+https://codeberg.org/Kruk2/vali" --no-build-isolation
+    retry uv pip install "python-vali @ git+https://codeberg.org/Kruk2/vali" --no-build-isolation
 
     echo "==> Installing PyNvVideoCodec (GPU encoder)..."
-    uv pip install "PyNvVideoCodec @ git+https://codeberg.org/Kruk2/PyNvVideoCodec" --no-build-isolation
+    retry uv pip install "PyNvVideoCodec @ git+https://codeberg.org/Kruk2/PyNvVideoCodec" --no-build-isolation
 }
 
 download_models() {
