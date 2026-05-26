@@ -135,7 +135,8 @@ install_jasna() {
     fi
     echo "==> Installing jasna..."
     cd "$REPO_ROOT"
-    uv pip install -e . --no-build-isolation
+    uv pip install -e . --no-build-isolation \
+        --extra-index-url https://download.pytorch.org/whl/cu130
 }
 
 main() {
