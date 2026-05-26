@@ -9,7 +9,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 MIN_GPU_COMPUTE = (7, 5)
-MIN_DRIVER_VERSION = 590
+MIN_DRIVER_VERSION = 575  # CUDA 13.0 requires 575+ on Linux; 590 was author's test driver, not the actual minimum
 
 
 def check_nvidia_gpu() -> tuple[bool, str] | tuple[bool, tuple[str, int, int]]:
