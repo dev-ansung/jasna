@@ -28,14 +28,13 @@ check_uv() {
 }
 
 install_system_deps() {
-    if done_stamp system_deps; then
+    if command -v mkvmerge &>/dev/null; then
         echo "==> [skip] system packages already installed"
         return
     fi
     echo "==> Installing system packages (mkvtoolnix, git, curl)..."
     apt-get update -qq
     apt-get install -y mkvtoolnix git curl
-    mark_done system_deps
 }
 
 install_ffmpeg() {
