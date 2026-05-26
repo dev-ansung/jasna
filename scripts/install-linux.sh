@@ -17,44 +17,53 @@ for arg in "$@"; do
     esac
 done
 
+step() { echo; echo "━━━ $* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; }
+skip() { echo "  [skip] $*"; }
+info() { echo "  $*"; }
+
 check_uv() {
+    step "check: uv"
     if ! command -v uv &>/dev/null; then
         echo "ERROR: uv not found. Install it first:"
         echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
         echo "  Then reload your shell and re-run this script."
         exit 1
     fi
-    echo "==> uv $(uv --version)"
+    info "$(uv --version)"
 }
 
 install_system_deps() {
+    step "system packages (mkvtoolnix git curl)"
     if command -v mkvmerge &>/dev/null; then
-        echo "==> [skip] system packages already installed"
+        skip "mkvmerge already on PATH ($(command -v mkvmerge))"
         return
     fi
-    echo "==> Installing system packages (mkvtoolnix, git, curl)..."
-    apt-get update -qq
+    apt-get update
     apt-get install -y mkvtoolnix git curl
 }
 
 install_ffmpeg() {
-    if [[ -x "$FFMPEG_DIR/ffmpeg" && -L /usr/bin/ffmpeg && -L /usr/bin/ffprobe ]]; then
-        echo "==> [skip] ffmpeg already installed ($("$FFMPEG_DIR/ffmpeg" -version 2>&1 | head -1))"
-        return
+    step "ffmpeg 8"
+    if [[ -x "$FFMPEG_DIR/ffmpeg" ]]; then
+        skip "binary already at $FFMPEG_DIR/ffmpeg"
+    else
+        info "downloading $FFMPEG_URL"
+        mkdir -p "$FFMPEG_DIR"
+        curl -L --progress-bar "$FFMPEG_URL" \
+            | tar -xJ --strip-components=2 -C "$FFMPEG_DIR" \
+                  --wildcards "*/bin/ffmpeg" "*/bin/ffprobe"
+        chmod +x "$FFMPEG_DIR/ffmpeg" "$FFMPEG_DIR/ffprobe"
+        info "extracted: $FFMPEG_DIR/ffmpeg $FFMPEG_DIR/ffprobe"
     fi
-    echo "==> Installing ffmpeg 8..."
-    mkdir -p "$FFMPEG_DIR"
-    curl -L --progress-bar "$FFMPEG_URL" \
-        | tar -xJ --strip-components=2 -C "$FFMPEG_DIR" \
-              --wildcards "*/bin/ffmpeg" "*/bin/ffprobe"
-    chmod +x "$FFMPEG_DIR/ffmpeg" "$FFMPEG_DIR/ffprobe"
-    ln -sf "$FFMPEG_DIR/ffmpeg"  /usr/bin/ffmpeg
-    ln -sf "$FFMPEG_DIR/ffprobe" /usr/bin/ffprobe
-    echo "    $(ffmpeg -version 2>&1 | head -1)"
+
+    info "symlinking into /usr/bin ..."
+    ln -sfv "$FFMPEG_DIR/ffmpeg"  /usr/bin/ffmpeg
+    ln -sfv "$FFMPEG_DIR/ffprobe" /usr/bin/ffprobe
+    info "$(ffmpeg -version 2>&1 | head -1)"
 }
 
 install_gpu_libs() {
-    echo "==> Checking CUDA 13 toolkit..."
+    step "CUDA check"
     if ! command -v nvcc &>/dev/null; then
         echo "ERROR: nvcc not found. Install CUDA 13 toolkit first:"
         echo "  https://developer.nvidia.com/cuda-downloads"
@@ -66,19 +75,19 @@ install_gpu_libs() {
         echo "ERROR: CUDA $cuda_ver found, need 13."
         exit 1
     fi
-    echo "    CUDA $cuda_ver ok"
+    info "nvcc reports CUDA $cuda_ver"
 
+    step "python-vali (GPU decoder)"
     if uv pip show python-vali &>/dev/null; then
-        echo "==> [skip] python_vali already installed"
+        skip "$(uv pip show python-vali | grep ^Name) $(uv pip show python-vali | grep ^Version)"
     else
-        echo "==> Installing python_vali (GPU decoder)..."
         uv pip install python-vali
     fi
 
+    step "PyNvVideoCodec (GPU encoder)"
     if uv pip show PyNvVideoCodec &>/dev/null; then
-        echo "==> [skip] PyNvVideoCodec already installed"
+        skip "$(uv pip show PyNvVideoCodec | grep ^Name) $(uv pip show PyNvVideoCodec | grep ^Version)"
     else
-        echo "==> Installing PyNvVideoCodec (GPU encoder)..."
         uv pip install PyNvVideoCodec
     fi
 }
@@ -86,7 +95,7 @@ install_gpu_libs() {
 download_models() {
     local dest="$REPO_ROOT/model_weights"
     mkdir -p "$dest"
-    echo "==> Downloading required model weights to $dest ..."
+    step "model weights -> $dest"
 
     local required=(
         "lada_mosaic_restoration_model_generic_v1.2.pth"
@@ -94,9 +103,9 @@ download_models() {
     )
     for f in "${required[@]}"; do
         if [[ -f "$dest/$f" ]]; then
-            echo "    [skip] $f already present"
+            skip "$f"
         else
-            echo "    [download] $f"
+            info "downloading $f ..."
             curl -L --progress-bar -o "$dest/$f" "$HF_BASE/$f"
         fi
     done
@@ -112,25 +121,25 @@ download_models() {
         )
         for f in "${optional[@]}"; do
             if [[ -f "$dest/$f" ]]; then
-                echo "    [skip] $f already present"
+                skip "$f"
             else
-                echo "    [download] $f"
+                info "downloading $f ..."
                 curl -L --progress-bar -o "$dest/$f" "$HF_BASE/$f"
             fi
         done
     fi
-
-    echo "    Model weights ready."
 }
 
 install_jasna() {
+    step "jasna"
     if uv pip show jasna &>/dev/null; then
-        echo "==> [skip] jasna already installed"
+        skip "$(uv pip show jasna | grep ^Version)"
         return
     fi
-    echo "==> Installing jasna..."
     cd "$REPO_ROOT"
+    info "installing wheel_stub (tensorrt build backend) ..."
     uv pip install wheel_stub
+    info "installing jasna and dependencies ..."
     uv pip install -e . --no-build-isolation \
         --extra-index-url https://download.pytorch.org/whl/cu130 \
         --index-strategy unsafe-best-match \
@@ -138,19 +147,23 @@ install_jasna() {
 }
 
 main() {
-    echo "Jasna Linux installer"
-    echo ""
+    echo "╔══════════════════════════════════════╗"
+    echo "║      Jasna Linux installer           ║"
+    echo "╚══════════════════════════════════════╝"
+    echo "  repo:    $REPO_ROOT"
+    echo "  ffmpeg:  $FFMPEG_DIR"
     check_uv
     install_system_deps
     install_ffmpeg
     install_gpu_libs
     download_models
     install_jasna
-    echo ""
-    echo "Done. Run jasna from the repo root:"
-    echo "  cd $REPO_ROOT && jasna"
-    echo ""
-    echo "If jasna is not found, reload your shell: source ~/.bashrc"
+    echo
+    echo "━━━ done ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  Run jasna from the repo root:"
+    echo "    cd $REPO_ROOT && jasna"
+    echo
+    echo "  If jasna is not on PATH: source ~/.bashrc"
 }
 
 main "$@"
