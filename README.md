@@ -51,14 +51,13 @@ Download the latest release package (Windows/Linux).
 
 - **If you downloaded the app (recommended)**:
   - **Windows**: You’re good to go — Jasna ships with everything it needs (`ffmpeg`, `ffprobe`, and `mkvmerge`).
-  - **Linux**: You need `ffmpeg`, `ffprobe` (**major version must be 8**), and `mkvmerge` available on your system. Install via your package manager. MKVToolNix: [downloads](https://mkvtoolnix.download/downloads.html).
+  - **Linux**: You need `ffmpeg` 8, `ffprobe`, and `mkvmerge` on your system. See the **Linux / RunPod Setup** section below for a one-shot install script.
 
 **First run will be slow** — TensorRT engines are compiled for your GPU. This takes **15-60 minutes**.\
 Close all other applications (including browsers) and do not use the PC during compilation.\
 Engines are cached in the `model_weights` folder and reused on all future runs (you can copy engine files & folders to a new version).
 
-**Remember to have up to date nvidia drivers.**\
-Tested nvidia drivers: **591.67** (but anything from 59x family should be ok and it's minimum required).\
+**Minimum NVIDIA driver: 575** (CUDA 13.0 requirement on Linux). Tested on 591.67.\
 **Jasna requires GPU with minimum compute capability: 7.5**
 
 ### Detection Model
@@ -127,19 +126,102 @@ Jasna is in early development and the main goal is to improve: restoration quali
 Thats why currently this project is aimed at more technical users, meaning the program accessability is lower and might be gated for some users.
 I do this to dedicate more time on important features and if you want to help Pull Requests are welcomed.
 
-## Building
-Install these libs via ```uv pip install . --no-build-isolation```\
-To build nvidia libs below you need also VS Build Tools 2022 (c++)
-make sure you have cmake and ninja ```uv pip install cmake ninja```\
-and cuda 13.0 in your system.
+## Linux / RunPod Setup
 
-### Running from source (developer setup)
-- Install `ffmpeg` + `ffprobe` and make sure they are on PATH (**ffmpeg major version must be 8**).
-- Install `mkvmerge` (part of MKVToolNix): [downloads](https://mkvtoolnix.download/downloads.html).
+This is the recommended path for running Jasna headlessly on a cloud GPU (RunPod, Vast.ai, etc.).
 
-https://codeberg.org/Kruk2/vali
+### Requirements
 
-https://codeberg.org/Kruk2/PyNvVideoCodec
+- NVIDIA GPU, compute capability ≥ 7.5 (RTX 20xx / Quadro RTX and newer)
+- VRAM: 8 GB minimum, 12 GB+ recommended for clip size 180 with compilation
+- CUDA 13.0 toolkit (`nvcc` on PATH)
+- Driver ≥ 575
+- Ubuntu 22.04 or 24.04
+- Python 3.13 via [`uv`](https://docs.astral.sh/uv/)
 
-Once two libs above are installed to your python enviorment run:
-```uv pip install -e .[dev]``` in jasna repository
+### RunPod pod setup
+
+1. **Create a pod** using the **RunPod PyTorch** template (or any image that includes CUDA 13 — e.g. `runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04` works as a base, but you need CUDA 13 headers). The simplest choice is the **"RunPod Torch 2.x + CUDA 13"** community template if available, otherwise select a devel image with CUDA 13 and install `uv` manually.
+
+2. **Attach a Network Volume** (recommended) — mount it at `/workspace`. Store `model_weights/` and the compiled TRT engine cache there so they persist across pod restarts and you only pay for the download once.
+
+3. **GPU recommendation**: RTX 3090 (24 GB) or RTX 4090 (24 GB) for best performance. RTX 3080 (10 GB) works at lower clip sizes.
+
+### One-shot install
+
+SSH into the pod, then:
+
+```bash
+# 1. Install uv (if not already present)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.bashrc
+
+# 2. Clone the repo (into your network volume if you have one)
+cd /workspace   # or wherever you want
+git clone https://github.com/dev-ansung/jasna
+cd jasna
+
+# 3. Create a virtual environment and run the installer
+uv venv .venv --python 3.13
+source .venv/bin/activate
+bash scripts/install-linux.sh
+
+# Optional: also download older detection models and the UNet 4x upscaler
+# bash scripts/install-linux.sh --all-models
+```
+
+The script handles:
+- Installing `mkvtoolnix` via apt
+- Downloading ffmpeg 8 static build to `~/.local/jasna/ffmpeg` and adding it to PATH
+- Building `python-vali` and `PyNvVideoCodec` from source against your CUDA 13 toolkit
+- Downloading required model weights from HuggingFace into `model_weights/`
+- Installing jasna itself (`uv pip install -e .`)
+
+### Apply the mmengine patch
+
+PyTorch 2.6+ changed `torch.load` defaults. Apply this one-line patch after install:
+
+```bash
+patch -p1 "$(python -c 'import mmengine; import os; print(os.path.dirname(mmengine.__file__))')/runner/checkpoint.py" \
+    < patches/fix_loading_mmengine_weights_on_torch26_and_higher.diff
+```
+
+### Running (CLI, headless)
+
+Jasna must be run from the repo root (model weights are resolved relative to CWD):
+
+```bash
+cd /workspace/jasna
+source .venv/bin/activate
+
+# Basic usage
+jasna --input /path/to/input.mp4 --output /path/to/output.mp4
+
+# Streaming (browser player)
+jasna --stream
+```
+
+**First run compiles TensorRT engines — this takes 15–60 minutes.** The engines are cached in `model_weights/` and reused on every subsequent run. If your `model_weights/` lives on a network volume, you only pay this cost once across all pod sessions.
+
+### Persisting work across pod restarts
+
+If you attached a network volume at `/workspace`, keep everything there:
+
+```
+/workspace/
+├── jasna/              ← repo clone (with .venv inside)
+│   └── model_weights/  ← weights + compiled TRT engines
+```
+
+On a fresh pod: attach the same volume, re-activate the venv, and run — no re-download or re-compilation needed.
+
+## Building from source (developer setup)
+
+Install `ffmpeg` + `ffprobe` (**major version 8**), `mkvmerge` ([MKVToolNix](https://mkvtoolnix.download/downloads.html)), and CUDA 13 headers, then:
+
+```bash
+uv pip install cmake ninja scikit-build
+uv pip install "python-vali @ git+https://codeberg.org/Kruk2/vali" --no-build-isolation
+uv pip install "PyNvVideoCodec @ git+https://codeberg.org/Kruk2/PyNvVideoCodec" --no-build-isolation
+uv pip install -e .[dev] --no-build-isolation
+```
