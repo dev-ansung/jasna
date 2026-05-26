@@ -38,9 +38,8 @@ install_system_deps() {
 }
 
 install_ffmpeg() {
-    export PATH="$FFMPEG_DIR:$PATH"
     if [[ -x "$FFMPEG_DIR/ffmpeg" ]]; then
-        echo "==> [skip] ffmpeg already installed ($(ffmpeg -version 2>&1 | head -1))"
+        echo "==> [skip] ffmpeg already installed ($("$FFMPEG_DIR/ffmpeg" -version 2>&1 | head -1))"
         return
     fi
     echo "==> Installing ffmpeg 8..."
@@ -49,13 +48,9 @@ install_ffmpeg() {
         | tar -xJ --strip-components=2 -C "$FFMPEG_DIR" \
               --wildcards "*/bin/ffmpeg" "*/bin/ffprobe"
     chmod +x "$FFMPEG_DIR/ffmpeg" "$FFMPEG_DIR/ffprobe"
-
-    local shell_rc="$HOME/.bashrc"
-    [[ "$SHELL" == */zsh ]] && shell_rc="$HOME/.zshrc"
-    grep -qxF "export PATH=\"$FFMPEG_DIR:\$PATH\"" "$shell_rc" \
-        || echo "export PATH=\"$FFMPEG_DIR:\$PATH\"" >> "$shell_rc"
-
-    echo "    $("$FFMPEG_DIR/ffmpeg" -version 2>&1 | head -1)"
+    ln -sf "$FFMPEG_DIR/ffmpeg"  /usr/local/bin/ffmpeg
+    ln -sf "$FFMPEG_DIR/ffprobe" /usr/local/bin/ffprobe
+    echo "    $(ffmpeg -version 2>&1 | head -1)"
 }
 
 install_gpu_libs() {
@@ -155,8 +150,7 @@ main() {
     echo "Done. Run jasna from the repo root:"
     echo "  cd $REPO_ROOT && jasna"
     echo ""
-    echo "If jasna or ffmpeg is not found, reload your shell:"
-    echo "  source ~/.bashrc"
+    echo "If jasna is not found, reload your shell: source ~/.bashrc"
 }
 
 main "$@"
