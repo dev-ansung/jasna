@@ -29,8 +29,8 @@ check_uv() {
 
 install_system_deps() {
     echo "==> Installing system packages (mkvtoolnix, git, curl)..."
-    sudo apt-get update -qq
-    sudo apt-get install -y mkvtoolnix git curl
+    apt-get update -qq
+    apt-get install -y mkvtoolnix git curl
 }
 
 install_ffmpeg() {
